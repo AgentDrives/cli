@@ -1,0 +1,36 @@
+{
+  "name": "@agentdrives/cli",
+  "version": "0.1.0",
+  "description": "Check whether an AI agent can sign up, get a key and do the work in a software product, from AgentDrives' test drives.",
+  "type": "module",
+  "bin": {
+    "agentdrives": "bin/agentdrives.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "ai-agents",
+    "agents",
+    "saas",
+    "mcp",
+    "agent-readiness",
+    "cli"
+  ],
+  "homepage": "https://agentdrives.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AgentDrives/cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AgentDrives/cli/issues"
+  },
+  "author": "AgentDrives (https://agentdrives.com)",
+  "license": "MIT"
+}
