@@ -33,7 +33,7 @@ The live names and meanings are in `levels` in `https://agentdrives.com/api/tool
 
 ## Fields
 
-In `api/tools.json` (every product) and `api/tools/<slug>.json` (one product):
+In `api/tools.json` (the directory) and `api/tools/<slug>.json` (one product, any we drove):
 
 | Field | Meaning |
 |---|---|
@@ -65,6 +65,7 @@ Only in `api/tools/<slug>.json`:
 
 ```sh
 slug=$(curl -s 'https://agentdrives.com/api/tools.json?via=skill' | jq -r '.tools[] | select(.domain == "example.com") | .slug')
+slug=${slug:-example}   # outside the directory: the slug its domain suggests (or get_tool over MCP)
 curl -s "https://agentdrives.com/api/tools/$slug.json?via=skill" | jq '{level, level_name, stop, first_blocker, tips_for_agents, tested_at}'
 ```
 

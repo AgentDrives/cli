@@ -17,20 +17,24 @@ Use the first of these you have:
 - **AgentDrives MCP server** (connected as a tool): `get_tool` for one product, `search_tools` to shortlist by what it
   does, category or minimum level, `list_categories` for the category ids. If the server lists
   `find_tools_for_task`, use it to search by task.
-- **The CLI**: `npx @agentdrives/cli level <domain> --json` for one product, `npx @agentdrives/cli find "<task>" --json`
+- **The CLI**: `npx @agentdrives/cli level <domain or name> --json` for one product (part of a name works; when
+  nothing matches, it suggests the closest names), `npx @agentdrives/cli find "<task>" --json`
   for a shortlist (`--self-serve` keeps only products an agent gets into alone).
 - **Plain HTTP**, no key needed:
-  - `https://agentdrives.com/api/tools.json?via=skill`: every product, with `slug`, `name`, `domain`, `category`, `level`,
+  - `https://agentdrives.com/api/tools.json?via=skill`: the directory, with `slug`, `name`, `domain`, `category`, `level`,
     `level_name`, `stages`, `stop`, `first_blocker`, `blocks_agent`, `pays_with`, `tested_at`; and `levels`, the meaning
-    of each level.
-  - `https://agentdrives.com/api/tools/<slug>.json?via=skill`: one product in full, with `can_do`, `cannot_do`,
-    `tips_for_agents` and `agent_check`.
+    of each level. When products carry `directory`, it lists only the Audited and In Audit ones.
+  - `https://agentdrives.com/api/tools/<slug>.json?via=skill`: one product, with `can_do`, `cannot_do`,
+    `tips_for_agents` and `agent_check`. It answers for every product we drove, in the list or not; one outside the
+    directory (its `directory.state` is "none") has its basic record: level, stages, stop and drive date.
 
   ```sh
   curl -s 'https://agentdrives.com/api/tools.json?via=skill' | jq '.tools[] | select(.domain == "example.com")'
   ```
 
-To find a product by domain, match `domain` without `www.`; for a subdomain, try its parent domain.
+To find a product by domain, match `domain` without `www.`; for a subdomain, try its parent domain. Not in the list:
+try `https://agentdrives.com/api/tools/<slug>.json?via=skill` with the slug its domain suggests ("example" for
+example.com), or the MCP server's `get_tool`, which takes a name or domain.
 
 ## 2. Read the result
 
@@ -51,7 +55,7 @@ To find a product by domain, match `domain` without `www.`; for a subdomain, try
   API key, or pick a product that gets in alone. Never solve a CAPTCHA or work around a bot check.
 - **Can't pay on its own** (the `pay` stage isn't `yes`): a person pays.
 - **Choosing between products**: prefer the higher level that does the job, then the one that gets in alone.
-- **Not in the directory**: say AgentDrives hasn't driven it yet. Don't guess a level. The person can run a free
+- **Not found by any of these**: say AgentDrives hasn't driven it yet. Don't guess a level. The person can run a free
   check of it (`npx @agentdrives/cli check <domain>`, or the link it prints); start one only when they ask.
 
 ## 4. Tell the person

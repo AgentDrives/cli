@@ -1,6 +1,6 @@
 {
   "name": "@agentdrives/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Check whether an AI agent can sign up, get a key and do the work in a software product, from AgentDrives' test drives.",
   "type": "module",
   "bin": {

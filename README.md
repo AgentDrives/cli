@@ -27,7 +27,7 @@ Level 3 of 5: Does the work. An agent gets in on its own and does half the core 
   ✓ Leave   Leaves on its own: nothing to cancel, what it made goes after 7 days
 
 Stops at: Delete the account. `stripe sandboxes delete` needs a logged-in live account ('sandbox management requires an active live account; run `stripe login`').
-Bot check: hCaptcha at Sign up
+Bot check: hCaptcha at Sign up. The agent got in another way.
 …
 Driven 17 Oct 2026
 https://agentdrives.com/tools/stripe?via=cli
@@ -41,7 +41,9 @@ The full answer also lists what an agent can and can't do there, and tips for ag
 ### `agentdrives level <domain|slug>`
 
 One product: its level (0 to 5), where the agent stopped and why, what it can and can't do there, and tips for
-agents. Takes a domain, a URL, a subdomain (`api.acme.com` finds `acme.com`), a directory slug or a name.
+agents. Takes a domain, a URL, a subdomain (`api.acme.com` finds `acme.com`), a directory slug, a name or part of
+one (`quillbill` finds Quillbill Invoicing when no other product has that word). When it finds nothing, it suggests
+the closest names (`did_you_mean` in `--json`).
 
 ```sh
 agentdrives level stripe.com
@@ -57,7 +59,7 @@ Products for a job, best level first, each with whether an agent gets in alone a
 
 ```sh
 agentdrives find "send transactional email"
-agentdrives find "crm" --self-serve              # only products an agent gets into on its own
+agentdrives find "send transactional email" --self-serve   # only products an agent gets into on its own
 agentdrives find "invoices" --category invoicing --limit 3
 ```
 
@@ -73,8 +75,31 @@ export AGENTDRIVES_API_KEY=...                   # from https://agentdrives.com/
 agentdrives check acme.com
 ```
 
-Run it again once the check is done to see where an agent would likely stop. One free check per domain every 90
-days; within them you get the latest one.
+Run it again while the check runs and it says it is still running (exit code 0), with its order id. One free check
+per domain every 90 days; within them you get the latest one.
+
+### `agentdrives report <order>`
+
+A check's result: where an agent would likely stop, and the report. While the check runs, it says so and when to ask
+again (exit code 0, `ready: false` in `--json`).
+
+```sh
+agentdrives report o-1a2b
+```
+
+### `agentdrives signup`
+
+An account for your agent, with its API key at once: no address, no person. Until a person claims it (the claim link
+in the answer) it gets one free check a day. `--name` names your agent to that person; `--email` mails them the link.
+
+```sh
+agentdrives signup --name my-agent
+export AGENTDRIVES_API_KEY=...                   # the key it printed, shown only once
+```
+
+### `agentdrives whoami`
+
+Your key's account: a person's or an agent's, its limits, its domains and its orders with their ids.
 
 ## For scripts and agents
 
@@ -86,11 +111,18 @@ Every command takes `--json` and prints one JSON object. Errors in `--json` mode
 | 0 | Done |
 | 1 | The API answered with an error, or couldn't be reached |
 | 2 | Wrong command or option |
-| 3 | `level`: the product isn't in the directory yet |
+| 3 | `level`: we haven't driven the product yet |
 
 `level --json` gives `product` with `level`, `level_name`, `gets_in_alone`, `stages`, `stop` (`at`, `step`, `why`),
-`bot_check`, `can_do`, `cannot_do`, `tips_for_agents`, `pays_with`, `paid`, `tested_at`, `page` and `json` (the full
-record). `find --json` gives `results`, a list of the same fields without the last four.
+`bot_check` (`vendor`, `at` and `step`: where the agent met it, `other_way`: it got in another way), `can_do`,
+`cannot_do`, `tips_for_agents`, `pays_with`, `paid`, `tested_at`, `page` and `json` (the full record). `find --json`
+gives `results`, a list of the same fields without the last four.
+
+`check --json` gives `started`, and `order_id` once there is one; while a check runs, `running: true`, `state` and
+`check_eta`. `report --json` gives `ready`, then `report` and `next` (the result), or `state` and `note` while it
+runs. `whoami --json` gives `account` (`id`, `type`, `claimed`, `email`), `agent` (its `limits`, for an account a
+person hasn't claimed), `data_plan`, `claims` and `orders`. `signup --json` is the API's answer: `api_key`,
+`limits` and `claim` (`url`, `expires_at`).
 
 Options: `--key <key>` (or `AGENTDRIVES_API_KEY`), `--base <url>` (or `AGENTDRIVES_URL`, default
 `https://agentdrives.com`).
