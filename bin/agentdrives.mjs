@@ -216,9 +216,7 @@ async function cmdCheck(api, opt, args) {
   const idx = await api.index().catch(() => null);
   const hit = idx ? await lookup(api, idx, dom).catch(() => null) : null;
   const listed = hit ? summary(api.base, hit.t, null, idx.levels ?? []) : null;
-  // "In the directory" only for a product the directory lists (Audited, In Audit, or every driven one before it opens).
-  const inDir = listed && (!listed.directory || ["audited", "in_audit"].includes(listed.directory.state));
-  const listedLine = listed ? `${listed.name} ${inDir ? "is in the directory" : "was driven"}: level ${listed.level}, ${listed.level_name} (driven ${day(listed.tested_at)}). ${listed.page}\n` : "";
+  const listedLine = listed ? `${listed.name} is in the directory: level ${listed.level}, ${listed.level_name} (driven ${day(listed.tested_at)}). ${listed.page}\n` : "";
   const dashboard = link(api.base, "/app/products");
 
   if (!api.hasKey) {
