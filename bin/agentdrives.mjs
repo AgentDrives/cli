@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // agentdrives: look up how far an AI agent gets with a software product, from AgentDrives' test drives.
 //   agentdrives level <domain|slug>                         one product: its level, where it stops, what an agent can do
+//   agentdrives status <domain|slug> [--min-level N]        one line for CI: exit 1 when the live level is below N
 //   agentdrives find "<task>" [--category C] [--self-serve]  products for a task, best first
 //   agentdrives check <domain> [--open]                      start a free check (with AGENTDRIVES_API_KEY), else its link
 //   agentdrives categories                                   the categories and the best level in each
 //   agentdrives signup [--name N] [--email E]                an agent's own account and its API key, no person needed
 //   agentdrives whoami                                       the key's account: who, its limits, domains and orders
 //   agentdrives report <order>                               an order's result (a free check's), or that it still runs
-// --json on every command. Exit codes: 0 ok (also a check that still runs), 1 an error, 2 a usage error, 3 not in the
-// directory (level).
+// --json on every command. Exit codes: 0 ok (also a check that still runs), 1 an error or (status) a level below
+// --min-level, 2 a usage error, 3 not in the directory (level, status).
 import { spawn } from "node:child_process";
 import { client, ApiError, DEFAULT_BASE } from "../lib/api.mjs";
 import { domainOf, isSlug, resolve, byName, lookAlikes, categoryOf, categories, selfServe, rankForTask } from "../lib/match.mjs";
@@ -19,6 +20,8 @@ const HELP = `agentdrives ${VERSION}: how far an AI agent gets with a software p
 
 Usage
   agentdrives level <domain|slug>          A product's level (0-5), where the agent stops and what it can do
+  agentdrives status <domain|slug>         One line for CI: the product's live level
+      --min-level <0-5>                    Exit with code 1 when the level is below this
   agentdrives find "<task>"                Products for a task, best level first
       --category <id|name>                 Only this category (see: agentdrives categories)
       --self-serve                         Only products an agent gets into on its own
@@ -41,13 +44,14 @@ Options
 
 Examples
   agentdrives level stripe.com
+  agentdrives status stripe.com --min-level 4
   agentdrives find "send transactional email" --self-serve
   agentdrives check acme.com --json
   agentdrives signup --name my-agent
 
 Get an API key at ${DEFAULT_BASE}/app/keys, or: agentdrives signup`;
 
-const FLAGS = { json: "bool", "self-serve": "bool", open: "bool", help: "bool", version: "bool", category: "value", limit: "value", key: "value", base: "value", name: "value", email: "value" };
+const FLAGS = { json: "bool", "self-serve": "bool", open: "bool", help: "bool", version: "bool", category: "value", limit: "value", "min-level": "value", key: "value", base: "value", name: "value", email: "value" };
 const SHORT = { h: "help", v: "version" };
 
 class Usage extends Error {}
@@ -120,6 +124,35 @@ async function cmdLevel(api, opt, args) {
   const s = summary(api.base, hit.t, hit.full ?? {}, idx.levels ?? []);
   emit(opt, { found: true, product: s }, levelText(s, idx.levels ?? []));
   return 0;
+}
+
+/** status: one line for a CI step. With --min-level, exit 1 when the product's live level is below it (the reason says
+ *  where our agent stopped), else 0; without, the line and 0. A product we haven't driven exits 3, as level does. */
+async function cmdStatus(api, opt, args) {
+  if (args.length !== 1) throw new Usage("status takes one domain or slug, e.g. agentdrives status stripe.com --min-level 4");
+  let min = null;
+  if (opt["min-level"] !== undefined) {
+    min = Number(opt["min-level"]);
+    if (!/^[0-5]$/.test(String(opt["min-level"]))) throw new Usage("--min-level takes a level from 0 to 5");
+  }
+  const idx = await api.index();
+  const hit = await lookup(api, idx, args[0]);
+  if (!hit) {
+    const dom = domainOf(args[0]);
+    emit(opt, { found: false, query: args[0], min_level: min, pass: false, reason: `${args[0]} isn't in the AgentDrives directory yet` },
+      `${args[0]} isn't in the AgentDrives directory yet, so it has no level.${dom ? ` See what an agent would meet there: agentdrives check ${dom}` : ""}`);
+    return 3;
+  }
+  const s = summary(api.base, hit.t, null, idx.levels ?? []);
+  const name = s.domain ?? s.name, lv = `L${s.level}${s.level_name ? ` ${s.level_name}` : ""}`;
+  const pass = min === null || s.level >= min;
+  const where = s.stop ? ` Our agent stopped at ${s.stop.step.toLowerCase()}${s.stop.why ? `: ${s.stop.why.replace(/\.$/, "")}` : ""}.` : "";
+  const when = s.tested_at ? ` Driven ${day(s.tested_at)}.` : "";
+  const reason = min === null ? `${name} is at ${lv}.${when}`
+    : pass ? `${name} is at ${lv}, at or above level ${min}.${when}` : `${name} is at ${lv}, below level ${min}.${where}${when}`;
+  emit(opt, { found: true, slug: s.slug, name: s.name, domain: s.domain, level: s.level, level_name: s.level_name, min_level: min, pass, reason,
+    tested_at: s.tested_at, page: s.page }, `${pass ? "OK" : "FAIL"} ${reason} ${s.page}`);
+  return pass ? 0 : 1;
 }
 
 /** The MCP server's own task search, when it has one: its results as directory entries, or null to search here. The
@@ -328,13 +361,14 @@ export async function main(argv, env = process.env) {
     if (opt.help || !cmd || cmd === "help") { out(HELP); return cmd || opt.help ? 0 : 2; }
     const api = client({ base: opt.base ?? env.AGENTDRIVES_URL ?? DEFAULT_BASE, key: opt.key ?? env.AGENTDRIVES_API_KEY ?? "" });
     if (cmd === "level") return await cmdLevel(api, opt, args);
+    if (cmd === "status") return await cmdStatus(api, opt, args);
     if (cmd === "find") return await cmdFind(api, opt, args);
     if (cmd === "check") return await cmdCheck(api, opt, args);
     if (cmd === "categories") return await cmdCategories(api, opt, args);
     if (cmd === "signup") return await cmdSignup(api, opt, args);
     if (cmd === "whoami") return await cmdWhoami(api, opt, args);
     if (cmd === "report") return await cmdReport(api, opt, args);
-    throw new Usage(`unknown command '${cmd}'. Commands: level, find, check, categories, signup, whoami, report`);
+    throw new Usage(`unknown command '${cmd}'. Commands: level, status, find, check, categories, signup, whoami, report`);
   } catch (e) {
     const usage = e instanceof Usage;
     if (opt.json) out(JSON.stringify({ error: usage ? "usage" : e.code || "error", message: e.message, ...(e.fix ? { fix: e.fix } : {}) }, null, 2));

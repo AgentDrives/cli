@@ -53,6 +53,27 @@ agentdrives level attio --json
 
 A product we haven't driven yet exits with code 3 and the link to check it.
 
+### `agentdrives status <domain|slug> --min-level <0-5>`
+
+One line for a CI step: the product's live level and, with `--min-level`, whether it meets it. Below the level it
+says where our agent stopped and exits with code 1, so the pipeline stops; at or above it, exit code 0. Without
+`--min-level` it prints the level and exits 0. Takes the same domain, slug or name as `level`.
+
+```sh
+agentdrives status stripe.com --min-level 4
+npx @agentdrives/cli status quillbill.com --min-level 3 --json
+```
+
+```text
+FAIL quillbill.com is at L2 Gets in, below level 3. Our agent stopped at get a key: … Driven 3 Oct 2026. https://agentdrives.com/tools/quillbill
+```
+
+A product we haven't driven yet exits with code 3. In GitHub Actions:
+
+```yaml
+- run: npx @agentdrives/cli status your-product.com --min-level 4
+```
+
 ### `agentdrives find "<task>"`
 
 Products for a job, best level first, each with whether an agent gets in alone and where it stops.
@@ -109,14 +130,15 @@ Every command takes `--json` and prints one JSON object. Errors in `--json` mode
 | Exit code | Meaning |
 |---|---|
 | 0 | Done |
-| 1 | The API answered with an error, or couldn't be reached |
+| 1 | The API answered with an error, or couldn't be reached; `status`: the level is below `--min-level` |
 | 2 | Wrong command or option |
-| 3 | `level`: we haven't driven the product yet |
+| 3 | `level`, `status`: we haven't driven the product yet |
 
 `level --json` gives `product` with `level`, `level_name`, `gets_in_alone`, `stages`, `stop` (`at`, `step`, `why`),
 `bot_check` (`vendor`, `at` and `step`: where the agent met it, `other_way`: it got in another way), `can_do`,
 `cannot_do`, `tips_for_agents`, `pays_with`, `paid`, `tested_at`, `page` and `json` (the full record). `find --json`
-gives `results`, a list of the same fields without the last four.
+gives `results`, a list of the same fields without the last four. `status --json` gives `found`, `slug`, `level`,
+`level_name`, `min_level`, `pass`, `reason`, `tested_at` and `page`.
 
 `check --json` gives `started`, and `order_id` once there is one; while a check runs, `running: true`, `state` and
 `check_eta`. `report --json` gives `ready`, then `report` and `next` (the result), or `state` and `note` while it
