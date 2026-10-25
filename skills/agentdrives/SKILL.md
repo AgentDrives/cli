@@ -23,10 +23,9 @@ Use the first of these you have:
 - **Plain HTTP**, no key needed:
   - `https://agentdrives.com/api/tools.json?via=skill`: the directory, with `slug`, `name`, `domain`, `category`, `level`,
     `level_name`, `stages`, `stop`, `first_blocker`, `blocks_agent`, `pays_with`, `tested_at`; and `levels`, the meaning
-    of each level. When products carry `directory`, it lists only the Audited and In Audit ones.
+    of each level. Every product we drove is in it.
   - `https://agentdrives.com/api/tools/<slug>.json?via=skill`: one product, with `can_do`, `cannot_do`,
-    `tips_for_agents` and `agent_check`. It answers for every product we drove, in the list or not; one outside the
-    directory (its `directory.state` is "none") has its basic record: level, stages, stop and drive date.
+    `tips_for_agents` and `agent_check`.
 
   ```sh
   curl -s 'https://agentdrives.com/api/tools.json?via=skill' | jq '.tools[] | select(.domain == "example.com")'
