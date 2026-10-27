@@ -23,7 +23,7 @@ Level 3 of 5: Does the work. An agent gets in on its own and does half the core 
 
   ✓ Access  Gets in on its own: try first, claim later
   ~ Use     Work done: 56% of the core
-  · Pay     Not tried yet: our agent worked without an account, so it had none to buy in
+  · Pay     No payment made: paying needs an account
   ✓ Leave   Leaves on its own: nothing to cancel, what it made goes after 7 days
 
 Stops at: Delete the account. `stripe sandboxes delete` needs a logged-in live account ('sandbox management requires an active live account; run `stripe login`').
