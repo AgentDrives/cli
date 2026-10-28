@@ -74,6 +74,18 @@ A product we haven't driven yet exits with code 3. In GitHub Actions:
 - run: npx @agentdrives/cli status your-product.com --min-level 4
 ```
 
+### `agentdrives surfaces <domain|slug>`
+
+Each way an agent works the product: its API, MCP server, CLI, SDK, docs and payment. For each, whether our drive
+tested it or the product only documents it, how many items the drive tried where it mapped them, the product's own
+line about it and the day it was checked. Above them, the product's level and how many issues the drive found. Takes
+the same domain, slug or name as `level`.
+
+```sh
+agentdrives surfaces stripe.com
+agentdrives surfaces quillbill --json
+```
+
 ### `agentdrives find "<task>"`
 
 Products for a job, best level first, each with whether an agent gets in alone and where it stops.
@@ -132,13 +144,16 @@ Every command takes `--json` and prints one JSON object. Errors in `--json` mode
 | 0 | Done |
 | 1 | The API answered with an error, or couldn't be reached; `status`: the level is below `--min-level` |
 | 2 | Wrong command or option |
-| 3 | `level`, `status`: we haven't driven the product yet |
+| 3 | `level`, `status`, `surfaces`: we haven't driven the product yet |
 
 `level --json` gives `product` with `level`, `level_name`, `gets_in_alone`, `stages`, `stop` (`at`, `step`, `why`),
 `bot_check` (`vendor`, `at` and `step`: where the agent met it, `other_way`: it got in another way), `can_do`,
 `cannot_do`, `tips_for_agents`, `pays_with`, `paid`, `tested_at`, `page` and `json` (the full record). `find --json`
 gives `results`, a list of the same fields without the last four. `status --json` gives `found`, `slug`, `level`,
-`level_name`, `min_level`, `pass`, `reason`, `tested_at` and `page`.
+`level_name`, `min_level`, `pass`, `reason`, `tested_at` and `page`. `surfaces --json` gives `found`, `slug`, `level`,
+`level_name`, `issues_found`, `tested_at` and `agent_surfaces` as the product's record has them, then `surfaces`: one
+row per surface with `surface`, `state` (`tested`, `documented`, `none_found` or `unknown`), `documented`, `tested`,
+`source` and `date`, and `page` and `json`.
 
 `check --json` gives `started`, and `order_id` once there is one; while a check runs, `running: true`, `state` and
 `check_eta`. `report --json` gives `ready`, then `report` and `next` (the result), or `state` and `note` while it

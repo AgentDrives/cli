@@ -2,6 +2,7 @@
 // agentdrives: look up how far an AI agent gets with a software product, from AgentDrives' test drives.
 //   agentdrives level <domain|slug>                         one product: its level, where it stops, what an agent can do
 //   agentdrives status <domain|slug> [--min-level N]        one line for CI: exit 1 when the live level is below N
+//   agentdrives surfaces <domain|slug>                      its agent surfaces: tested or documented, source, date
 //   agentdrives find "<task>" [--category C] [--self-serve]  products for a task, best first
 //   agentdrives check <domain> [--open]                      start a free check (with AGENTDRIVES_API_KEY), else its link
 //   agentdrives categories                                   the categories and the best level in each
@@ -9,11 +10,11 @@
 //   agentdrives whoami                                       the key's account: who, its limits, domains and orders
 //   agentdrives report <order>                               an order's result (a free check's), or that it still runs
 // --json on every command. Exit codes: 0 ok (also a check that still runs), 1 an error or (status) a level below
-// --min-level, 2 a usage error, 3 not in the directory (level, status).
+// --min-level, 2 a usage error, 3 not in the directory (level, status, surfaces).
 import { spawn } from "node:child_process";
 import { client, ApiError, DEFAULT_BASE } from "../lib/api.mjs";
 import { domainOf, isSlug, resolve, byName, lookAlikes, categoryOf, categories, selfServe, rankForTask } from "../lib/match.mjs";
-import { summary, levelText, rowsText, link, day } from "../lib/format.mjs";
+import { summary, levelText, rowsText, surfacesOf, surfacesText, link, day } from "../lib/format.mjs";
 import { VERSION } from "../lib/version.mjs";
 
 const HELP = `agentdrives ${VERSION}: how far an AI agent gets with a software product, from AgentDrives' test drives.
@@ -22,6 +23,7 @@ Usage
   agentdrives level <domain|slug>          A product's level (0-5), where the agent stops and what it can do
   agentdrives status <domain|slug>         One line for CI: the product's live level
       --min-level <0-5>                    Exit with code 1 when the level is below this
+  agentdrives surfaces <domain|slug>       Its API, MCP, CLI, SDK, docs and payment, its level and issues found
   agentdrives find "<task>"                Products for a task, best level first
       --category <id|name>                 Only this category (see: agentdrives categories)
       --self-serve                         Only products an agent gets into on its own
@@ -45,6 +47,7 @@ Options
 Examples
   agentdrives level stripe.com
   agentdrives status stripe.com --min-level 4
+  agentdrives surfaces stripe.com
   agentdrives find "send transactional email" --self-serve
   agentdrives check acme.com --json
   agentdrives signup --name my-agent
@@ -110,19 +113,35 @@ async function cmdLevel(api, opt, args) {
   if (args.length !== 1) throw new Usage("level takes one domain or slug, e.g. agentdrives level stripe.com");
   const idx = await api.index();
   const hit = await lookup(api, idx, args[0]);
-  if (!hit) {
-    const dom = domainOf(args[0]);
-    const next = dom ? `agentdrives check ${dom}` : null;
-    const alike = lookAlikes(idx.tools, args[0]).slice(0, 3);
-    emit(opt, { found: false, query: args[0], ...(dom ? { domain: dom, check: startLink(api.base, dom) } : {}),
-      did_you_mean: alike.map((t) => ({ slug: t.slug, name: t.name, domain: t.domain ?? null })) },
-      `${args[0]} isn't in the AgentDrives directory yet.` +
-      (alike.length ? `\nDid you mean ${alike.map((t) => `${t.name} (${t.domain}): agentdrives level ${t.slug}`).join(", or ")}?` : "") +
-      (next ? `\nSee what an agent would meet there: ${next}` : ""));
-    return 3;
-  }
+  if (!hit) return notFound(api, opt, idx, args[0], "level");
   const s = summary(api.base, hit.t, hit.full ?? {}, idx.levels ?? []);
   emit(opt, { found: true, product: s }, levelText(s, idx.levels ?? []));
+  return 0;
+}
+
+/** A product we haven't driven: the closest names and the link to check it; exit 3. */
+function notFound(api, opt, idx, input, cmd) {
+  const dom = domainOf(input);
+  const next = dom ? `agentdrives check ${dom}` : null;
+  const alike = lookAlikes(idx.tools, input).slice(0, 3);
+  emit(opt, { found: false, query: input, ...(dom ? { domain: dom, check: startLink(api.base, dom) } : {}),
+    did_you_mean: alike.map((t) => ({ slug: t.slug, name: t.name, domain: t.domain ?? null })) },
+    `${input} isn't in the AgentDrives directory yet.` +
+    (alike.length ? `\nDid you mean ${alike.map((t) => `${t.name} (${t.domain}): agentdrives ${cmd} ${t.slug}`).join(", or ")}?` : "") +
+    (next ? `\nSee what an agent would meet there: ${next}` : ""));
+  return 3;
+}
+
+/** surfaces: each way an agent works the product (API, MCP, CLI, SDK, docs, payment), tested or only documented, with
+ *  its source and date, the level and how many issues the drive found. */
+async function cmdSurfaces(api, opt, args) {
+  if (args.length !== 1) throw new Usage("surfaces takes one domain or slug, e.g. agentdrives surfaces stripe.com");
+  const idx = await api.index();
+  const hit = await lookup(api, idx, args[0]);
+  const full = hit?.full;
+  if (!full) return notFound(api, opt, idx, args[0], "surfaces");
+  const s = surfacesOf(api.base, full);
+  emit(opt, { found: true, ...s }, surfacesText(s, idx.levels ?? []));
   return 0;
 }
 
@@ -360,13 +379,14 @@ export async function main(argv, env = process.env) {
     const api = client({ base: opt.base ?? env.AGENTDRIVES_URL ?? DEFAULT_BASE, key: opt.key ?? env.AGENTDRIVES_API_KEY ?? "" });
     if (cmd === "level") return await cmdLevel(api, opt, args);
     if (cmd === "status") return await cmdStatus(api, opt, args);
+    if (cmd === "surfaces") return await cmdSurfaces(api, opt, args);
     if (cmd === "find") return await cmdFind(api, opt, args);
     if (cmd === "check") return await cmdCheck(api, opt, args);
     if (cmd === "categories") return await cmdCategories(api, opt, args);
     if (cmd === "signup") return await cmdSignup(api, opt, args);
     if (cmd === "whoami") return await cmdWhoami(api, opt, args);
     if (cmd === "report") return await cmdReport(api, opt, args);
-    throw new Usage(`unknown command '${cmd}'. Commands: level, status, find, check, categories, signup, whoami, report`);
+    throw new Usage(`unknown command '${cmd}'. Commands: level, status, surfaces, find, check, categories, signup, whoami, report`);
   } catch (e) {
     const usage = e instanceof Usage;
     if (opt.json) out(JSON.stringify({ error: usage ? "usage" : e.code || "error", message: e.message, ...(e.fix ? { fix: e.fix } : {}) }, null, 2));
