@@ -22,14 +22,14 @@ Stripe · stripe.com · Payments
 Level 3 of 5: Does the work. An agent gets in on its own and does half the core work or more.
 
   ✓ Access  Gets in on its own: try first, claim later
-  ~ Use     Work done: 56% of the core
+  ~ Use     Work done: 67% of the core
   · Pay     No payment made: paying needs an account
   ✓ Leave   Leaves on its own: nothing to cancel, what it made goes after 7 days
 
-Stops at: Delete the account. `stripe sandboxes delete` needs a logged-in live account ('sandbox management requires an active live account; run `stripe login`').
+Stops at: Delete the account. `stripe sandboxes delete <acct> --confirm` -> "sandbox management requires an active live account; run stripe login and select a live account"; the Dashboard…
 Bot check: hCaptcha at Sign up. The agent got in another way.
 …
-Driven 17 Oct 2026
+Driven 31 Oct 2026
 https://agentdrives.com/tools/stripe?via=cli
 ```
 <!-- /example -->
