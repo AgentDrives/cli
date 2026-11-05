@@ -174,11 +174,14 @@ async function cmdStatus(api, opt, args) {
   return pass ? 0 : 1;
 }
 
+/** The task search's names, newest first: servers list only one, and older ones only find_tools_for_task. */
+const TASK_TOOLS = ["choose_provider_for_task", "find_tools_for_task"];
+
 /** The MCP server's own task search, when it has one: its results as directory entries, or null to search here. The
  *  server filters by category and self-sign-up itself; an error it answers is the user's to see, never a quiet fallback. */
 async function findOnServer(api, task, opt, tools, limit) {
   const list = await api.mcpTools();
-  const tool = list?.find((t) => t.name === "find_tools_for_task");
+  const tool = TASK_TOOLS.map((n) => list?.find((t) => t.name === n)).find(Boolean);
   if (!tool) return null;
   const props = tool.inputSchema?.properties ?? {};
   const taskKey = ["task", "query", "description"].find((k) => k in props);
@@ -188,11 +191,11 @@ async function findOnServer(api, task, opt, tools, limit) {
   if (opt.category && "category" in props) { args.category = opt.category; sent.category = true; }
   if (opt["self-serve"] && "self_signup" in props) { args.self_signup = true; sent.self_serve = true; }
   if ("limit" in props) args.limit = Math.min(limit, Number.isInteger(props.limit.maximum) ? props.limit.maximum : 25);
-  const res = await api.mcpCall("find_tools_for_task", args);
+  const res = await api.mcpCall(tool.name, args);
   const items = Array.isArray(res) ? res : Array.isArray(res?.results) ? res.results : Array.isArray(res?.tools) ? res.tools : null;
   if (!items) return null;
   const bySlug = new Map(tools.map((t) => [t.slug, t]));
-  return { sent, found: items.map((x) => bySlug.get(typeof x === "string" ? x : x?.slug)).filter(Boolean) };
+  return { name: tool.name, sent, found: items.map((x) => bySlug.get(typeof x === "string" ? x : x?.slug)).filter(Boolean) };
 }
 
 async function cmdFind(api, opt, args) {
@@ -206,10 +209,9 @@ async function cmdFind(api, opt, args) {
     const ids = categories(idx.tools).map((c) => c.category).join(", ");
     throw new ApiError(`no category '${opt.category}'. Categories: ${ids}`);
   }
-  let source = "mcp:find_tools_for_task";
   const server = await findOnServer(api, task, opt, idx.tools, limit);
-  let found = server?.found;
-  if (!server) { source = "index"; found = rankForTask(idx.tools, task); }
+  const source = server ? `mcp:${server.name}` : "index";
+  let found = server ? server.found : rankForTask(idx.tools, task);
   if (cat && !server?.sent.category) found = found.filter((t) => t.category === cat.id);
   if (opt["self-serve"] && !server?.sent.self_serve) found = found.filter(selfServe);
   const results = found.slice(0, limit).map((t) => summary(api.base, t, null, idx.levels ?? []));
